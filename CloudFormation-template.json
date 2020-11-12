@@ -1,0 +1,633 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": { "default" : "Lambda Configurations"},
+                    "Parameters": ["LambdaFunctionName", "LambdaCodeBucket", "SchedulerLambdaCode", "NotificationLambdaCode", "ChimeWebhookURL"]
+                },
+                {
+                    "Label": {"default": "DynamoDB and Glue configuration"},
+                    "Parameters": ["DynamodbTable", "GlueDatabase", "GlueTwitterTable", "S3TwitterPath", "S3GithubPath", "OutputLocation", "ScriptLocation"]
+                },
+                {
+                    "Label": {"default": "EMR Configuration"},
+                    "Parameters": ["ClusterName", "InstanceType", "ReleaseLabel", "KeyName", "SubnetId", "TerminationProtected", "LogUri"]
+                }
+            ]
+        }
+    },
+    "Parameters": {
+        "ClusterName": {
+            "Type": "String",
+            "Description": "Name of EMR cluster",
+            "Default": "Covid-Project"
+        },
+        "LambdaFunctionName": {
+            "Type": "String",
+            "Default": "ETL-Scheduler",
+            "Description": "Name for Lambda function"
+        },
+        "LambdaCodeBucket": {
+            "Type": "String",
+            "Default": "<your-bucket-name>",
+            "Description": "Bucket containing Lambda function codes. Eg. my-bucket"
+        },
+        "SchedulerLambdaCode": {
+            "Type": "String",
+            "Default": "scripts/lambda_etl.zip",
+            "Description": "S3 object key containing ETL scheduler code. Eg. <prefix>/etl.py"
+        },
+        "NotificationLambdaCode": {
+            "Type": "String",
+            "Default": "scripts/lambda_notifier.zip",
+            "Description": "S3 object key containing Notfication Lambda code."
+        },
+        "ChimeWebhookURL": {
+            "Type": "String",
+            "Description": "Chime Web Hook URL"
+        },
+        "DynamodbTable": {
+            "Type": "String",
+            "Default": "Covid-Project",
+            "Description": "Name of DynamoDB table"
+        },
+        "GlueDatabase": {
+            "Type": "String",
+            "Default": "covid_project",
+            "Description": "Name of Glue database"
+        },
+        "S3GithubPath": {
+            "Type": "String",
+            "Default": "s3://<your-bucket>/covid19-ingest-data",
+            "Description": "S3 path containing Github data"
+        },
+        "S3TwitterPath": {
+            "Type": "String",
+            "Default": "s3://<your-bucket>/covid19-twitter",
+            "Description": "S3 path containing twitter data. A table will be created from this location."
+        },
+        "GlueTwitterTable": {
+            "Type": "String",
+            "Default": "twitter_data",
+            "Description": "Name of Glue table representing Twitter data"
+        },
+        "ScriptLocation": {
+            "Type": "String",
+            "Default": "s3://<your-bucket>/revised/scripts/",
+            "Description": "S3 path containing ETL scripts. Eg. s3://my-bucket/scripts/"
+        },
+        "OutputLocation": {
+            "Type": "String",
+            "Default": "s3://<your-bucket>/output",
+            "Description": "S3 path to contain ETL output"
+        },
+        "InstanceType": {
+            "Type": "String",
+            "Default": "m5.xlarge"
+        },
+        "ReleaseLabel": {
+            "Type": "String",
+            "Default": "emr-5.29.0"
+        },
+        "KeyName": {
+            "Description": "Must be an existing Keyname",
+            "Type": "String",
+            "Default": "<your-ec2-key-pair-name>"
+        },
+        "SubnetId": {
+            "Type": "String",
+            "Default": "<your-subnet-id>",
+            "Description": "VPC Subnet ID"
+        }, 
+        "TerminationProtected" : {
+            "Type" : "String",
+            "Default" : "true"
+        }, 
+        "LogUri": {
+            "Description": "Must be a valid S3 URL",
+            "Default": "s3://<your-logging-bucket/elasticmapreduce/",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "GlueDB": {
+            "Type" : "AWS::Glue::Database",
+            "Properties" : {
+                "CatalogId" : {"Ref": "AWS::AccountId"},
+                "DatabaseInput" : {
+                    "Name": {"Ref": "GlueDatabase"}
+                }
+            }
+        },
+        "TwitterTable": {
+            "Type": "AWS::Glue::Table",
+            "Properties": {
+                "CatalogId": {"Ref": "AWS::AccountId"},
+                "DatabaseName": {"Ref": "GlueDatabase"},
+                "TableInput": {
+                    "Name": {"Ref": "GlueTwitterTable"},
+                    "TableType": "EXTERNAL_TABLE",
+                    "PartitionKeys": [
+                        {
+                            "Name": "year",
+                            "Type": "string"
+                        },
+                        {
+                            "Name": "month",
+                            "Type": "string"
+                        },
+                        {
+                            "Name": "day",
+                            "Type": "string"
+                        }
+                    ],
+                    "StorageDescriptor": {
+                        "Columns": [
+                            {
+                                "Name": "time",
+                                "Type": "bigint"
+                            },
+                            {
+                                "Name": "tweet",
+                                "Type": "string"
+                            },
+                            {
+                                "Name": "country",
+                                "Type": "string"
+                            },
+                            {
+                                "Name": "followers",
+                                "Type": "int"
+                            },
+                            {
+                                "Name": "id",
+                                "Type": "bigint"
+                            },
+                            {
+                                "Name": "hashtags",
+                                "Type": "string"
+                            }
+                        ],
+                        "Location": {"Ref": "S3TwitterPath"},
+                        "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                        "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                        "SerdeInfo": {
+                            "SerializationLibrary": "org.apache.hadoop.hive.serde2.RegexSerDe",
+                            "Parameters": {
+                                "input.regex": "^(.*?);'(.*?)';(.*?);(.*?);(.*?);\\[(.*?)\\]$"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "DDBTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "TableName": {"Ref": "DynamodbTable"},
+                "KeySchema": [
+                    {
+                        "AttributeName": "date",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "etl",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "BillingMode": "PROVISIONED",
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 2,
+                    "WriteCapacityUnits": 2
+                },
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "date",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "etl",
+                        "AttributeType": "N"
+                    },
+                    {
+                        "AttributeName": "status",
+                        "AttributeType": "S"
+                    }
+                ],
+                "GlobalSecondaryIndexes": [
+                    {
+                        "IndexName": "status-date-index",
+                        "KeySchema": [
+                            {
+                                "AttributeName": "status",
+                                "KeyType": "HASH"
+                            },
+                            {
+                                "AttributeName": "date",
+                                "KeyType": "RANGE"
+                            }
+                        ],
+                        "Projection": {
+                            "ProjectionType": "INCLUDE",
+                            "NonKeyAttributes": [
+                                "etl"
+                            ]
+                        }, 
+                        "ProvisionedThroughput": {
+                            "ReadCapacityUnits": 2,
+                            "WriteCapacityUnits": 2
+                        }
+                    }
+                ],
+                "StreamSpecification": {
+                    "StreamViewType": "NEW_AND_OLD_IMAGES"
+                }
+            }
+        },
+        "SchedulerLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": {"Ref": "LambdaFunctionName"},
+                "Description": "Lambda function to schedule Step submission to EMR",
+                "Code": {
+                    "S3Bucket": {"Ref": "LambdaCodeBucket"},
+                    "S3Key": {"Ref": "SchedulerLambdaCode"}
+                },
+                "Handler": "lambda_etl.lambda_handler",
+                "Runtime": "python3.8",
+                "Timeout": 10,
+                "MemorySize": 128,
+                "Role": {
+                    "Fn::GetAtt": ["SchedulerLambdaExecutionRole", "Arn"]
+                },
+                "Environment": {
+                    "Variables": {
+                        "cluster_name": {
+                            "Ref": "ClusterName"
+                        },
+                        "ddb_table": {
+                            "Ref": "DynamodbTable"
+                        },
+                        "glue_db": {
+                            "Ref": "GlueDatabase"
+                        },
+                        "glue_table": {
+                            "Ref": "GlueTwitterTable"
+                        },
+                        "script_location": {
+                            "Ref": "ScriptLocation"
+                        },
+                        "output_path": {
+                            "Ref": "OutputLocation"
+                        },
+                        "github_input_path": {
+                            "Ref": "S3GithubPath"
+                        }
+                    }
+                }
+            }
+        },
+        "NotificationLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "DynamoDB-Stream-Chime-Notification",
+                "Description": "Lambda function to send notifications to Chime",
+                "Code": {
+                    "S3Bucket": {"Ref": "LambdaCodeBucket"},
+                    "S3Key": {"Ref": "NotificationLambdaCode"}
+                },
+                "Handler": "lambda_notifier.lambda_handler",
+                "Runtime": "python3.8",
+                "Timeout": 10,
+                "MemorySize": 128,
+                "Role": {
+                    "Fn::GetAtt": ["NotificationLambdaExecutionRole", "Arn"]
+                },
+                "Environment": {
+                    "Variables": {
+                        "chime_url": {"Ref": "ChimeWebhookURL"}
+                    }
+                }
+            }
+        },
+        "SchedulerLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Description": "Lambda Execution Role for submitting EMR Step",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "AWSLambdaBasicExecutionRole",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["logs:CreateLogGroup"],
+                                    "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*" }
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+                                    "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*" }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "LambdaServicesPermissions",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["elasticmapreduce:ListClusters", "elasticmapreduce:AddJobFlowSteps", "elasticmapreduce:DescribeStep"],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+                                    "Resource": { "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamodbTable}" }
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["glue:GetTable", "glue:CreatePartition"],
+                                    "Resource": [
+                                        { "Fn::Sub": "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog" },
+                                        { "Fn::Sub": "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${GlueDatabase}" },
+                                        { "Fn::Sub": "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/${GlueDatabase}/${GlueTwitterTable}" }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "NotificationLambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Description": "Lambda Execution Role for Notificaton function",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "AWSLambdaBasicExecutionRole",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["logs:CreateLogGroup"],
+                                    "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*" }
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+                                    "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/DynamoDB-Stream-Chime-Notification:*" }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "LambdaServicesPermissions",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["dynamodb:GetRecords", "dynamodb:GetShardIterator", "dynamodb:DescribeStream", "dynamodb:ListStreams"],
+                                    "Resource": {"Fn::GetAtt": ["DDBTable", "StreamArn"]}
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "DailyCloudwatchRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Name": "Daily-CloudWatch-Rule",
+                "ScheduleExpression": "cron(5 8 * * ? *)",
+                "State": "ENABLED",
+                "EventBusName": "default",
+                "Targets": [
+                    {
+                    "Arn": {"Fn::GetAtt": ["SchedulerLambdaFunction", "Arn"]},
+                    "Id": "ETLSchedulerLambda"
+                    }
+                ]
+            }
+        },
+        "DDBLambdaEventSourceMapping": {
+            "Type" : "AWS::Lambda::EventSourceMapping",
+            "Properties" : {
+                "BatchSize": 2,
+                "MaximumBatchingWindowInSeconds": 0,
+                "EventSourceArn": {"Fn::GetAtt": ["DDBTable", "StreamArn"]},
+                "FunctionName": {"Fn::GetAtt": ["NotificationLambdaFunction", "Arn"]},
+                "StartingPosition": "LATEST"
+            }
+        },
+        "EMRCluster": {
+            "Type": "AWS::EMR::Cluster",
+            "Properties": {
+                "Applications": [
+                    {
+                        "Name": "Spark"
+                    },
+                    {
+                        "Name": "Hue"
+                    },
+                    {
+                        "Name": "Hive"
+                    },
+                    {
+                        "Name": "Zeppelin"
+                    },
+                    {
+                        "Name": "Livy"
+                    }
+                ],
+                "BootstrapActions": [
+                    {
+                        "Name": "Install-Python-modules",
+                        "ScriptBootstrapAction": {
+                            "Path": "s3://<your-bucket>/scripts/python-bootstrap.sh",
+                            "Args": []
+                        }
+                    }
+                ],
+                "Configurations": [
+                    {
+                        "Classification": "emrfs-site",
+                        "ConfigurationProperties": {
+                            "fs.s3.canned.acl": "BucketOwnerFullControl",
+                            "fs.s3.enableServerSideEncryption": "true"
+                        }
+                    }, {
+                        "Classification": "hive-site",
+                        "ConfigurationProperties": {
+                            "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+                        }
+                    },
+                    {
+                        "Classification": "tez-site",
+                        "ConfigurationProperties": {
+                            "tez.queue.name": "interactive"
+                        }
+                    },
+                    {
+                        "Classification": "spark-hive-site",
+                        "ConfigurationProperties": {
+                            "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+                        }
+                    },
+                    {
+                        "Classification": "spark-defaults",
+                        "ConfigurationProperties": {
+                            "spark.yarn.queue": "interactive"
+                        }
+                    },
+                    {
+                        "Classification": "spark-env",
+                        "ConfigurationProperties": {},
+                        "Configurations": [
+                           {
+                            "Classification": "export",
+                            "ConfigurationProperties": {
+                                "PYSPARK_PYTHON": "/usr/bin/python3"
+                              }
+                           }
+                        ]
+                    },
+                    {
+                        "Classification": "yarn-site",
+                        "ConfigurationProperties": {
+                            "yarn.resourcemanager.scheduler.class": "org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler",
+                            "yarn.resourcemanager.scheduler.monitor.enable": "true",
+                            "yarn.resourcemanager.scheduler.monitor.policies": "org.apache.hadoop.yarn.server.resourcemanager.monitor.capacity.ProportionalCapacityPreemptionPolicy",
+                            "yarn.resourcemanager.monitor.capacity.preemption.monitoring_interval": "2000",
+                            "yarn.resourcemanager.monitor.capacity.preemption.max_wait_before_kill": "10000",
+                            "yarn.resourcemanager.monitor.capacity.preemption.total_preemption_per_round": "0.5",
+                            "yarn.resourcemanager.monitor.capacity.preemption.max_ignored_over_capacity": "0.1",
+                            "yarn.resourcemanager.monitor.capacity.preemption.natural_termination_factor": "0.5"
+                        }
+                    },
+                    {
+                        "Classification": "capacity-scheduler",
+                        "ConfigurationProperties": {
+                            "yarn.scheduler.capacity.resource-calculator": "org.apache.hadoop.yarn.util.resource.DominantResourceCalculator",
+                            "yarn.scheduler.capacity.root.queues": "etl,interactive",
+                            "yarn.scheduler.capacity.root.etl.queues": "etl1,etl2",
+                            "yarn.scheduler.capacity.root.capacity": "100",
+                            "yarn.scheduler.capacity.root.etl.capacity": "50",
+                            "yarn.scheduler.capacity.root.interactive.capacity": "50",
+                            "yarn.scheduler.capacity.root.etl.maximum-capacity": "100",
+                            "yarn.scheduler.capacity.root.interactive.maximum-capacity": "100",
+                            "yarn.scheduler.capacity.root.etl.etl1.capacity": "50",
+                            "yarn.scheduler.capacity.root.etl.etl2.capacity": "50",
+                            "yarn.scheduler.capacity.root.etl.etl1.maximum-capacity": "100",
+                            "yarn.scheduler.capacity.root.etl.etl2.maximum-capacity": "100",
+                            "yarn.scheduler.capacity.root.interactive.accessible-node-labels": "*",
+                            "yarn.scheduler.capacity.root.etl.accessible-node-labels": "*",
+                            "yarn.scheduler.capacity.root.accessible-node-labels.CORE.capacity": "100",
+                            "yarn.scheduler.capacity.root.etl.accessible-node-labels.CORE.capacity": "50",
+                            "yarn.scheduler.capacity.root.interactive.accessible-node-labels.CORE.capacity": "50",
+                            "yarn.scheduler.capacity.root.etl.accessible-node-labels.CORE.maximum-capacity": "100",
+                            "yarn.scheduler.capacity.root.etl.etl1.accessible-node-labels.CORE.capacity": "50",
+                            "yarn.scheduler.capacity.root.etl.etl2.accessible-node-labels.CORE.capacity": "50",
+                            "yarn.scheduler.capacity.root.interactive.disable_preemption": "true",
+                            "yarn.scheduler.capacity.root.etl.disable_preemption": "false"
+                        }
+                    }
+                ],
+                "Instances": {
+                    "MasterInstanceGroup": {
+                        "InstanceCount": 1,
+                        "InstanceType": {
+                            "Ref": "InstanceType"
+                        },
+                        "Market": "ON_DEMAND",
+                        "Name": "cfnMaster"
+                    },
+                    "CoreInstanceGroup": {
+                        "InstanceCount": 1,
+                        "InstanceType": {
+                            "Ref": "InstanceType"
+                        },
+                        "Market": "ON_DEMAND",
+                        "Name": "cfnCore"
+                    },
+                    "TerminationProtected": {
+                        "Ref": "TerminationProtected"
+                    },
+                    "Ec2SubnetId": {
+                        "Ref": "SubnetId"
+                    },
+                    "Ec2KeyName": {
+                        "Ref": "KeyName"
+                    }
+                },
+                "Name": {
+                    "Ref": "ClusterName"
+                },
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "ServiceRole": "EMR_DefaultRole",
+                "ReleaseLabel": {
+                    "Ref": "ReleaseLabel"
+                },
+                "LogUri": {
+                    "Ref": "LogUri"
+                  },
+                "VisibleToAllUsers": true,
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Test-cluster"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "ClusterID": {
+            "Value": {"Ref": "EMRCluster"}
+        },
+        "MasterIP": {
+            "Value": {"Fn::GetAtt": ["EMRCluster", "MasterPublicDNS"]}
+        },
+        "SchedulerLambdaFunction": {
+            "Value": {"Fn::GetAtt": ["SchedulerLambdaFunction", "Arn"]}
+        },
+        "DynamoDBStream": {
+            "Value": {"Fn::GetAtt": ["DDBTable", "StreamArn"]}
+        }
+    }
+}

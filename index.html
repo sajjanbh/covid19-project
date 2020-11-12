@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <title>Covid19 Dashboard</title>
+        <script type="text/javascript" src="https://unpkg.com/amazon-quicksight-embedding-sdk@1.0.6/dist/quicksight-embedding-js-sdk.min.js"></script>
+        <!-- <script type="text/javascript" src="quicksight-embedding-js-sdk.min.js"></script> -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://sdk.amazonaws.com/js/aws-sdk-2.517.0.min.js"></script>
+        <script type="text/javascript">
+            function onVisualLoaded() {
+                console.log("Dashboard fully loaded");
+            }
+
+            function onError() {
+                var div = document.getElementById("errorContainer");
+                div.innerHTML = "Please switch to incognito mode if you are having trouble accessing the dashboard. We are working on this issue.";
+            }
+
+            function embedDashboard(embedUrl) {
+                let scrollHeight = Math.max(
+                    document.body.scrollHeight, document.documentElement.scrollHeight,
+                    document.body.offsetHeight, document.documentElement.offsetHeight,
+                    document.body.clientHeight, document.documentElement.clientHeight
+                );
+                var iFrameHeight = scrollHeight - 15; // to get rid of the extra scroll bar on the side
+                var containerDiv = document.getElementById("dashboardContainer");
+                var params = {
+                    url: embedUrl,
+                    container: containerDiv,
+                    height: iFrameHeight,
+                    className: "iframe-container",
+                    locale: "en-US"
+                };
+                var dashboard = QuickSightEmbedding.embedDashboard(params);
+                dashboard.on('error', onError);
+                dashboard.on('load', onVisualLoaded);
+            }
+
+            function embedDashboardQuickSightAuthenticated() {
+                var apiGatewayUrl = 'https://<your-API-Gateway-endpoint>/prod/getDashboardEmbedURL?';
+                apiGatewayGetDashboardEmbedUrl(
+                    apiGatewayUrl
+                );
+            }
+
+            function apiGatewayGetDashboardEmbedUrl(
+                apiGatewayUrl
+            ) {
+                $.ajax({
+                    url: apiGatewayUrl,
+                    contentType: 'application/json',
+                    method: 'GET',
+                    success: function(data) {
+                        document.getElementsByClassName("loading-icon")[0].style.display = "none";
+                        embedDashboard(data.EmbedUrl);
+                    },
+                    error: function(data) {
+                        document.getElementsByClassName("loading-icon")[0].style.display = "none";
+                        console.log('Error obtaining QuickSight dashboard embed url.');
+                    }
+                });
+            }
+        </script>
+    </head>
+    <body onload="embedDashboardQuickSightAuthenticated()">
+        <div id="container">
+            <div class="header">
+            </div>
+            <div class='loading-icon'>
+                <div class='loading-bar'></div>
+                <div class='loading-bar'></div>
+                <div class='loading-bar'></div>
+                <div class='loading-bar'></div>
+                <div class='loading-bar'></div>
+            </div>
+
+            <div id="dashboardContainer"></div>
+            <div id="errorContainer"></div>
+        </div>
+    </body>
+    </html>
