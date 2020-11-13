@@ -105,7 +105,10 @@ def check_if_already_processed(etl, job_date):
                 return check_emr_step_status(item.get('cluster_id')['S'], item.get('step_id')['S'], item.get('submit_time')['N'], job_date, etl)
             elif job_status == "RUNNING":
                 print("Job is in running state! Not re-submitting now.")
-                return item
+                if not check_emr_step_status(item.get('cluster_id')['S'], item.get('step_id')['S'], item.get('submit_time')['N'], job_date, etl):
+                    return False
+                else:
+                    return item
             elif job_status == "FAILED":
                 print("Job failed! Re-submitting!")
                 return False
@@ -162,7 +165,7 @@ def add_glue_partition(year, month, day):
     else: return None
 
 def lambda_handler(event, context):
-    if event.get('year') and event.get('month') and event.get('day'):
+    if event.get('year', None) and event.get('month', None) and event.get('day', None):
         # Used to back-fill old data.
         year = event['year']
         month = event['month']
@@ -175,7 +178,7 @@ def lambda_handler(event, context):
         month = str("{0:0=2d}".format(yesterday.month))
         day = str("{0:0=2d}".format(yesterday.day))
     
-    etls=['1','2']
+    etls=['1', '2']
     
     job_date = "{}-{}-{}".format(year, month, day)
     
@@ -202,8 +205,8 @@ def lambda_handler(event, context):
 
         queue = "etl{}".format(etl) if etl == "1" or etl == "2" else "interactive"
         step_args = ['spark-submit',
-                        '--queue', queue, # comment it if not using YARN Capacity scheduler
-                        '--deploy-mode', 'cluster', # comment it if want to run Spark app in Client mode
+                        '--queue', queue,
+                        '--deploy-mode', 'cluster',
                         '{}/etl{}.py'.format(script_location, etl),
                         '--date', job_date,
                         '--input-path', input_path,

@@ -445,6 +445,21 @@
                 ]
             }
         },
+        "EventPermissionToSchedulerFunction": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Fn::GetAtt": ["SchedulerLambdaFunction", "Arn"]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": {
+                    "Service": "events.amazonaws.com"
+                },
+                "SourceArn": {
+                    "Fn::GetAtt": ["DailyCloudwatchRule", "Arn"]
+                }
+            }
+        },
         "DDBLambdaEventSourceMapping": {
             "Type" : "AWS::Lambda::EventSourceMapping",
             "Properties" : {
