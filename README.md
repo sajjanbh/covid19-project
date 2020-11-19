@@ -1,0 +1,1 @@
+![alt Architecture Diagram](https://github.com/sajjanbh/covid19-project/blob/master/Architecture-Diagram.jpg?raw=true)
