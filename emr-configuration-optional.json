@@ -1,0 +1,144 @@
+[
+    {
+        "Classification": "emrfs-site",
+        "ConfigurationProperties": {
+            "fs.s3.canned.acl": "BucketOwnerFullControl",
+            "fs.s3.enableServerSideEncryption": "true",
+            "fs.s3.authorization.roleMapping": "<write-access-role-arn>=u:etl,<read-only-access-role-arn>=g:<data_scientists-group-name>"
+        }
+    }, {
+        "Classification": "hive-site",
+        "ConfigurationProperties": {
+            "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+        }
+    },
+    {
+        "Classification": "tez-site",
+        "ConfigurationProperties": {
+            "tez.queue.name": "interactive"
+        }
+    },
+    {
+        "Classification": "spark-hive-site",
+        "ConfigurationProperties": {
+            "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+        }
+    },
+    {
+        "Classification": "spark-defaults",
+        "ConfigurationProperties": {
+            "spark.yarn.queue": "interactive"
+        }
+    },
+    {
+        "Classification": "spark-env",
+        "ConfigurationProperties": {},
+        "Configurations": [
+           {
+            "Classification": "export",
+            "ConfigurationProperties": {
+                "PYSPARK_PYTHON": "/usr/bin/python3"
+              }
+           }
+        ]
+    },
+    {
+        "Classification": "yarn-site",
+        "ConfigurationProperties": {
+            "yarn.resourcemanager.scheduler.class": "org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler",
+            "yarn.resourcemanager.scheduler.monitor.enable": "true",
+            "yarn.resourcemanager.scheduler.monitor.policies": "org.apache.hadoop.yarn.server.resourcemanager.monitor.capacity.ProportionalCapacityPreemptionPolicy",
+            "yarn.resourcemanager.monitor.capacity.preemption.monitoring_interval": "2000",
+            "yarn.resourcemanager.monitor.capacity.preemption.max_wait_before_kill": "10000",
+            "yarn.resourcemanager.monitor.capacity.preemption.total_preemption_per_round": "0.5",
+            "yarn.resourcemanager.monitor.capacity.preemption.max_ignored_over_capacity": "0.1",
+            "yarn.resourcemanager.monitor.capacity.preemption.natural_termination_factor": "0.5"
+        }
+    },
+    {
+        "Classification": "capacity-scheduler",
+        "ConfigurationProperties": {
+            "yarn.scheduler.capacity.resource-calculator": "org.apache.hadoop.yarn.util.resource.DominantResourceCalculator",
+            "yarn.scheduler.capacity.root.queues": "etl,interactive",
+            "yarn.scheduler.capacity.root.etl.queues": "etl1,etl2",
+            "yarn.scheduler.capacity.root.capacity": "100",
+            "yarn.scheduler.capacity.root.etl.capacity": "50",
+            "yarn.scheduler.capacity.root.interactive.capacity": "50",
+            "yarn.scheduler.capacity.root.etl.maximum-capacity": "100",
+            "yarn.scheduler.capacity.root.interactive.maximum-capacity": "100",
+            "yarn.scheduler.capacity.root.etl.etl1.capacity": "50",
+            "yarn.scheduler.capacity.root.etl.etl2.capacity": "50",
+            "yarn.scheduler.capacity.root.etl.etl1.maximum-capacity": "100",
+            "yarn.scheduler.capacity.root.etl.etl2.maximum-capacity": "100",
+            "yarn.scheduler.capacity.root.interactive.accessible-node-labels": "*",
+            "yarn.scheduler.capacity.root.etl.accessible-node-labels": "*",
+            "yarn.scheduler.capacity.root.accessible-node-labels.CORE.capacity": "100",
+            "yarn.scheduler.capacity.root.etl.accessible-node-labels.CORE.capacity": "50",
+            "yarn.scheduler.capacity.root.interactive.accessible-node-labels.CORE.capacity": "50",
+            "yarn.scheduler.capacity.root.etl.accessible-node-labels.CORE.maximum-capacity": "100",
+            "yarn.scheduler.capacity.root.etl.etl1.accessible-node-labels.CORE.capacity": "50",
+            "yarn.scheduler.capacity.root.etl.etl2.accessible-node-labels.CORE.capacity": "50",
+            "yarn.scheduler.capacity.root.interactive.disable_preemption": "true",
+            "yarn.scheduler.capacity.root.etl.disable_preemption": "false"
+        }
+    },
+    {
+        "Classification": "core-site",
+        "Properties": {
+            "hadoop.security.group.mapping": "org.apache.hadoop.security.CompositeGroupsMapping",
+            "hadoop.security.group.mapping.providers": "ad1,shell",
+            "hadoop.security.group.mapping.providers.combined": "false",
+            "hadoop.security.group.mapping.provider.ad1": "org.apache.hadoop.security.LdapGroupsMapping",
+            "hadoop.security.group.mapping.provider.ad1.ldap.bind.user": "CN=<bind-user>,CN=Users,DC=<domain-name>,DC=COM",
+            "hadoop.security.group.mapping.provider.ad1.ldap.bind.password": "<bind-user-password>",
+            "hadoop.security.group.mapping.provider.ad1.ldap.url": "ldap://<AD-host-name-or-ip>",
+            "hadoop.security.group.mapping.provider.ad1.ldap.base": "dc=<domain-name>,dc=COM",
+            "hadoop.security.group.mapping.provider.ad1.ldap.search.filter.user": "(&(|(objectclass=person)(objectclass=user))(sAMAccountName={0}))",
+            "hadoop.security.group.mapping.provider.ad1.ldap.search.filter.group": "(objectClass=group)",
+            "hadoop.security.group.mapping.provider.ad1.ldap.search.attr.member": "member",
+            "hadoop.security.group.mapping.provider.ad1.ldap.search.attr.group.name": "cn",
+            "hadoop.security.group.mapping.provider.shell": "org.apache.hadoop.security.ShellBasedUnixGroupsMapping"
+        }
+    },
+    {
+        "Classification": "hue-ini",
+        "ConfigurationProperties": {},
+        "Configurations": [
+            {
+                "Classification": "desktop",
+                "ConfigurationProperties": {},
+                "Configurations": [
+                    {
+                        "Classification": "ldap",
+                        "ConfigurationProperties": {},
+                        "Configurations": [
+                            {
+                                "Classification": "ldap_servers",
+                                "ConfigurationProperties": {},
+                                "Configurations": [
+                                    {
+                                        "Classification": "<custom-name>",
+                                        "ConfigurationProperties": {
+                                            "base_dn": "DC=<DOMAIN-NAME>,DC=COM",
+                                            "ldap_url": "ldap://<AD-server-hostname-or-ip>:389",
+                                            "search_bind_authentication": "false",
+                                            "ldap_username_pattern": "cn=<username>,cn=Users,dc=<DOMAIN-NAME>,dc=COM",
+                                            "user_filter": "objectclass=*"
+                                        },
+                                        "Configurations": []
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "Classification": "auth",
+                        "ConfigurationProperties": {
+                            "backend": "desktop.auth.backend.LdapBackend"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+]

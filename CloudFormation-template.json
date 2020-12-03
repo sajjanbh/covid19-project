@@ -513,21 +513,9 @@
                         }
                     },
                     {
-                        "Classification": "tez-site",
-                        "ConfigurationProperties": {
-                            "tez.queue.name": "interactive"
-                        }
-                    },
-                    {
                         "Classification": "spark-hive-site",
                         "ConfigurationProperties": {
                             "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
-                        }
-                    },
-                    {
-                        "Classification": "spark-defaults",
-                        "ConfigurationProperties": {
-                            "spark.yarn.queue": "interactive"
                         }
                     },
                     {
@@ -541,46 +529,6 @@
                               }
                            }
                         ]
-                    },
-                    {
-                        "Classification": "yarn-site",
-                        "ConfigurationProperties": {
-                            "yarn.resourcemanager.scheduler.class": "org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler",
-                            "yarn.resourcemanager.scheduler.monitor.enable": "true",
-                            "yarn.resourcemanager.scheduler.monitor.policies": "org.apache.hadoop.yarn.server.resourcemanager.monitor.capacity.ProportionalCapacityPreemptionPolicy",
-                            "yarn.resourcemanager.monitor.capacity.preemption.monitoring_interval": "2000",
-                            "yarn.resourcemanager.monitor.capacity.preemption.max_wait_before_kill": "10000",
-                            "yarn.resourcemanager.monitor.capacity.preemption.total_preemption_per_round": "0.5",
-                            "yarn.resourcemanager.monitor.capacity.preemption.max_ignored_over_capacity": "0.1",
-                            "yarn.resourcemanager.monitor.capacity.preemption.natural_termination_factor": "0.5"
-                        }
-                    },
-                    {
-                        "Classification": "capacity-scheduler",
-                        "ConfigurationProperties": {
-                            "yarn.scheduler.capacity.resource-calculator": "org.apache.hadoop.yarn.util.resource.DominantResourceCalculator",
-                            "yarn.scheduler.capacity.root.queues": "etl,interactive",
-                            "yarn.scheduler.capacity.root.etl.queues": "etl1,etl2",
-                            "yarn.scheduler.capacity.root.capacity": "100",
-                            "yarn.scheduler.capacity.root.etl.capacity": "50",
-                            "yarn.scheduler.capacity.root.interactive.capacity": "50",
-                            "yarn.scheduler.capacity.root.etl.maximum-capacity": "100",
-                            "yarn.scheduler.capacity.root.interactive.maximum-capacity": "100",
-                            "yarn.scheduler.capacity.root.etl.etl1.capacity": "50",
-                            "yarn.scheduler.capacity.root.etl.etl2.capacity": "50",
-                            "yarn.scheduler.capacity.root.etl.etl1.maximum-capacity": "100",
-                            "yarn.scheduler.capacity.root.etl.etl2.maximum-capacity": "100",
-                            "yarn.scheduler.capacity.root.interactive.accessible-node-labels": "*",
-                            "yarn.scheduler.capacity.root.etl.accessible-node-labels": "*",
-                            "yarn.scheduler.capacity.root.accessible-node-labels.CORE.capacity": "100",
-                            "yarn.scheduler.capacity.root.etl.accessible-node-labels.CORE.capacity": "50",
-                            "yarn.scheduler.capacity.root.interactive.accessible-node-labels.CORE.capacity": "50",
-                            "yarn.scheduler.capacity.root.etl.accessible-node-labels.CORE.maximum-capacity": "100",
-                            "yarn.scheduler.capacity.root.etl.etl1.accessible-node-labels.CORE.capacity": "50",
-                            "yarn.scheduler.capacity.root.etl.etl2.accessible-node-labels.CORE.capacity": "50",
-                            "yarn.scheduler.capacity.root.interactive.disable_preemption": "true",
-                            "yarn.scheduler.capacity.root.etl.disable_preemption": "false"
-                        }
                     }
                 ],
                 "Instances": {
