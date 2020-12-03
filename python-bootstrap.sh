@@ -1,3 +1,3 @@
 #!/bin/bash
 set -e
-sudo pip-3.6 install boto3 pycountry
+sudo python3 -m pip install boto3 pycountry

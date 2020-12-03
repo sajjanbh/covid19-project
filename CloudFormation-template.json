@@ -494,7 +494,7 @@
                     {
                         "Name": "Install-Python-modules",
                         "ScriptBootstrapAction": {
-                            "Path": "s3://<your-bucket>/scripts/python-bootstrap.sh",
+                            "Path": { "Fn::Sub": "${ScriptLocation}scripts/python-bootstrap.sh" },
                             "Args": []
                         }
                     }
