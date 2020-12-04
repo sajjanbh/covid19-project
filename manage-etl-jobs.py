@@ -2,7 +2,9 @@ import datetime, boto3, json
 import argparse
 from boto3.dynamodb.conditions import Key
 
-# This script is used a tool to manage the ETL jobs, such as for backfilling past data or resubmit failed jobs.
+# This script is used a tool to manage the ETL jobs, such as for backfilling past data or resubmit failed jobs.]
+# Usage to submit past dates: python3 manage-etl-jobs.py run-job --start-date <date> --end-date <date>
+# Usage to resubmit any failed jobs: python3 manage-etl-jobs.py resubmit-failed
 
 def invoke_lambda(l_client, d):
 	year = str(d.year)

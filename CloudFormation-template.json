@@ -13,7 +13,7 @@
                 },
                 {
                     "Label": {"default": "EMR Configuration"},
-                    "Parameters": ["ClusterName", "InstanceType", "ReleaseLabel", "KeyName", "SubnetId", "TerminationProtected", "LogUri"]
+                    "Parameters": ["ClusterName", "InstanceType", "ReleaseLabel", "KeyName", "SubnetId", "TerminationProtected", "LogUri", "LDAPIP"]
                 }
             ]
         }
@@ -108,6 +108,10 @@
         "LogUri": {
             "Description": "Must be a valid S3 URL",
             "Default": "s3://<your-logging-bucket/elasticmapreduce/",
+            "Type": "String"
+        },
+        "LDAPIP": {
+            "Description": "Optional: IP address of AD server if LDAP authentication is being used.",
             "Type": "String"
         }
     },
