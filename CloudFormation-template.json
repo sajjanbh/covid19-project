@@ -498,7 +498,7 @@
                     {
                         "Name": "Install-Python-modules",
                         "ScriptBootstrapAction": {
-                            "Path": { "Fn::Sub": "${ScriptLocation}scripts/python-bootstrap.sh" },
+                            "Path": { "Fn::Sub": "${ScriptLocation}scripts/emr-bootstrap.sh" },
                             "Args": []
                         }
                     }
