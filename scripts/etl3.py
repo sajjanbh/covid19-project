@@ -4,7 +4,7 @@ from pyspark.sql import SparkSession
 from datetime import datetime, timedelta
 import boto3
 
-app_start = datetime.datetime.now().timestamp()
+app_start = datetime.now().timestamp()
 
 # Parse arguments. Not all arguments are required for this ETL job. Only required arguments will be used by this job.
 # Eg. spark-submit etl3.py --date 2020-04-06 --output-path s3://<your-bucket>/<output-path> --ddb-table Covid-project --glue-database covid_project
@@ -76,7 +76,7 @@ def notify_running(sc):
     update_ddb_item(update_attr)
 
 def notify_completion():
-    app_end = datetime.datetime.now().timestamp()
+    app_end = datetime.now().timestamp()
     time_taken = int(app_end - app_start) # in seconds
     update_attr = {
         'app_endtime': {'Value': {'N': str(app_end)}},
@@ -86,7 +86,7 @@ def notify_completion():
     update_ddb_item(update_attr)
 
 def notify_failure(e):
-    app_end = datetime.datetime.now().timestamp()
+    app_end = datetime.now().timestamp()
     time_taken = int(app_end - app_start) # in seconds
     update_attr = {
         'app_endtime': {'Value': {'N': str(app_end)}},
@@ -102,7 +102,7 @@ def update_ddb_item(update_attr):
   try:
     updateresponse = ddb.update_item(TableName=ddb_table, Key={'date': {'S': pk}, 'etl': {'N': etl}}, AttributeUpdates=update_attr)
     if updateresponse['ResponseMetadata']['HTTPStatusCode'] == 200:
-      print("Item {} updated successfully!").format(pk)
+      print("Item {} updated successfully!".format(pk))
   except Exception as e: print(e)
 
 # Main Method
@@ -134,7 +134,7 @@ def main():
         df3.repartition(1).write.mode("append").option("path", output_path).format("Parquet").saveAsTable(output_table)
 
         # To write the data to MySQL RDS. For this, make sure to pass --jars /usr/share/java/mysql-connector-java.jar with spark-submit.
-        # df3.write.format('jdbc').options(url='jdbc:mysql://<db-endpoint>:3306/<db-name>', dbtable='<table-name>', user='<user>', password='<password>').mode('append').save()
+        # df3.write.format('jdbc').options(driver='com.mysql.jdbc.Driver', url='jdbc:mysql://<hostname>:3306/<database>', dbtable='<table-name>', user='<user>', password='<password>').mode('append').save()
         print("Wrote the output!")
 
         # Update DDB record with COMPLETED state

@@ -170,6 +170,7 @@ def lambda_handler(event, context):
         year = event['year']
         month = event['month']
         day = event['day']
+        today = datetime.datetime.strptime('{}-{}-{}'.format(year, month, day), '%Y-%m-%d')
     else:
         # For Cloudwatch trigger
         today = datetime.datetime.today()
@@ -183,9 +184,9 @@ def lambda_handler(event, context):
     job_date = "{}-{}-{}".format(year, month, day)
     
     # If it's Wednesday, let's run ETL3 as well.
-    # if today.strftime("%A") == "Wednesday":
-    #     print("{} is wednesday!".format(job_date))
-    #     etls.append('3')
+    if today.strftime("%A") == "Wednesday":
+        print("{} is wednesday!".format(job_date))
+        etls.append('3')
     
     cluster_id = get_emr_cluster_id()
     if not cluster_id:
@@ -207,6 +208,11 @@ def lambda_handler(event, context):
         step_args = ['spark-submit',
                         '--queue', queue,
                         '--deploy-mode', 'cluster',
+                        '--proxy-user', 'etl'
+                    ]
+        if etl == '3':
+            step_args.extend(['--jars', '/usr/share/java/mysql-connector-java.jar'])
+        step_args.extend([
                         '{}/etl{}.py'.format(script_location, etl),
                         '--date', job_date,
                         '--input-path', input_path,
@@ -215,7 +221,7 @@ def lambda_handler(event, context):
                         '--glue-database', glue_db,
                         '--glue-table', glue_table,
                         '--region', region
-                    ]
+                    ])
         step_name = 'ETL{}-{}-{}-{}'.format(etl, year, month, day)
         print("Step {}: {}".format(step_name, " ".join(step_args)))
         
